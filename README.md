@@ -31,10 +31,12 @@ USE RetailInventoryDb;
 CREATE TABLE Product(
 ProductID VARCHAR(20) PRIMARY KEY,
 ProductName VARCHAR(20),
-CategoryID INT,FOREIGN KEY (CategoryID) REFERENCES Category(CategoryID),
+CategoryID INT,
+FOREIGN KEY (CategoryID) REFERENCES Category(CategoryID),
 Price INT,
 Quantity INT,
-SupplierID INT, FOREIGN KEY (SupplierID) REFERENCES Supplier(SupplierID));
+SupplierID INT, 
+FOREIGN KEY (SupplierID) REFERENCES Supplier(SupplierID));
 
 CREATE TABLE Category(
 CategoryID INT PRIMARY KEY,
@@ -96,48 +98,57 @@ VALUES
 ('W09','SouthernWarehouse','Atlanta'),
 ('W10','GulfWarehouse','Houston');
 
-1. Fetch products with the same price:
+-- Analytical questions
+
+-- 1. Fetch products with the same price:
+
 SELECT ProductName, Price
 FROM Product
+WHERE Price IN (
+SELECT Price
+FROM Product
 GROUP BY Price
-HAVING COUNT(Price) > 1
+HAVING COUNT(ProductID)>1);
 
-2. Find the second highest priced product and its category:
-SELECT TOP 1 ProductName, CategoryName
-FROM Product p
-JOIN Category c ON p.CategoryID = c.CategoryID
+-- 2. Find the second highest priced product and its category:
+
+SELECT P.ProductName, C.CategoryName, P.Price
+FROM Product P
+JOIN Category C ON P.CategoryID = C.CategoryID
 ORDER BY Price DESC
 OFFSET 1 ROW
+FETCH NEXT 1 ROW ONLY;
 
-3. Get the maximum price per category and the product name:
+-- 3. Get the maximum price per category and the product name:
 SELECT c.CategoryName, MAX(p.Price) AS MaxPrice, p.ProductName
 FROM Product p
 JOIN Category c ON p.CategoryID = c.CategoryID
-GROUP BY c.CategoryName
+GROUP BY c.CategoryName, p.ProductName;
 
-4. Supplier-wise count of products sorted by count in descending order:
+-- 4. Supplier-wise count of products sorted by count in descending order:
 SELECT s.SupplierName, COUNT(p.ProductID) AS ProductCount
 FROM Product p
 JOIN Supplier s ON p.SupplierID = s.SupplierID
 GROUP BY s.SupplierName
 ORDER BY ProductCount DESC
 
-5. Fetch only the first word from the ProductName and append the price:
-SELECT LEFT(ProductName, CHARINDEX(' ', ProductName) - 1) AS FirstName, Price
-FROM Product
+-- 5. Fetch only the first word from the ProductName and append the price:
 
-6. Fetch products with odd prices:
+SELECT CONCAT(ProductName,'_',price)
+FROM Product;
+
+-- 6. Fetch products with odd prices:
 SELECT *
 FROM Product
 WHERE Price % 2 != 0
 
-7. Create a view to fetch products with a price greater than $500:
+-- 7. Create a view to fetch products with a price greater than $500:
 CREATE VIEW HighPricedProducts AS
 SELECT *
 FROM Product
 WHERE Price > 500
 
-8. Create a procedure to update product prices by 15% where the category is 'Electronics' and the supplier is not 'SupplierA':
+-- 8. Create a procedure to update product prices by 15% where the category is 'Electronics' and the supplier is not 'SupplierA':
 CREATE PROCEDURE UpdatePrices AS
 BEGIN
 UPDATE p
@@ -148,20 +159,36 @@ JOIN Supplier s ON p.SupplierID = s.SupplierID
 WHERE c.CategoryName = 'Electronics' AND s.SupplierName != 'SupplierA'
 END
 
-9. Create a stored procedure to fetch product details along with their category, supplier, and warehouse location, including error handling:
-CREATE PROCEDURE GetProductDetails AS
-BEGIN TRY
-SELECT p.ProductName, c.CategoryName, s.SupplierName, w.WarehouseName
-FROM Product p
-JOIN Category c ON p.CategoryID = c.CategoryID
-JOIN Supplier s ON p.SupplierID = s.SupplierID
-JOIN Warehouse w ON p.WarehouseID = w.WarehouseID
-END TRY
-BEGIN CATCH
-DECLARE @ErrorMessage NVARCHAR(4000)
-SET @ErrorMessage = ERROR_MESSAGE()
-RAISERROR (@ErrorMessage, 16, 1)
-END CATCH
+-- 9. Create a stored procedure to fetch product details along with their category, supplier, and warehouse location, including error handling:
+
+
+CREATE PROCEDURE GetProductDetails1
+AS
+BEGIN
+    TRY
+        BEGIN
+            SELECT 
+                p.ProductName, 
+                c.CategoryName, 
+                s.SupplierName, 
+                w.WarehouseName
+            FROM 
+                Product p
+            JOIN 
+                Category c ON p.CategoryID = c.CategoryID
+            JOIN 
+                Supplier s ON p.SupplierID = s.SupplierID
+            JOIN 
+                Warehouse w ON p.WarehouseID = w.WarehouseID
+        END
+    END TRY
+    BEGIN CATCH
+        BEGIN
+            DECLARE @ErrorMessage NVARCHAR(4000)
+            SET @ErrorMessage = ERROR_MESSAGE()
+            RAISERROR (@ErrorMessage, 16, 1)
+        END
+    END CATCH
 END
 ```
 
